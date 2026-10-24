@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Block Heatmap</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --fg: #111827;
+      --panel: #fff;
+      --line: #d1d5db;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #1e1f26;
+        --fg: #e5e7eb;
+        --panel: #14151a;
+        --line: #3a3c46;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #1e1f26;
+      --fg: #e5e7eb;
+      --panel: #14151a;
+      --line: #3a3c46;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family:
+        system-ui,
+        -apple-system,
+        "Segoe UI",
+        Roboto,
+        sans-serif;
+    }
+
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    #map {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      min-height: 320px;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .b {
+      position: absolute;
+      border: 1px solid #000;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      text-align: center;
+      cursor: default;
+      line-height: 1.15;
+    }
+
+    .b:hover {
+      outline: 2px solid #fff;
+      outline-offset: -2px;
+      z-index: 2;
+    }
+
+    .b b {
+      font-weight: 700;
+    }
+
+    #tip {
+      position: fixed;
+      pointer-events: none;
+      background: #000d;
+      color: #fff;
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      display: none;
+      z-index: 9;
+    }
+
+    .legend {
+      display: flex;
+      margin: 8px 0;
+      max-width: 420px;
+      font-size: 12px;
+    }
+
+    .legend span {
+      flex: 1;
+      text-align: center;
+      padding: 4px 0;
+      color: #fff;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      background: var(--panel);
+      color: var(--fg);
+      border: 1px solid var(--line);
+      font:
+        12px ui-monospace,
+        Menlo,
+        monospace;
+      padding: 8px;
+    }
+
+    button {
+      margin-top: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--fg);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    p.n {
+      font-size: 12px;
+      opacity: 0.7;
+      margin: 4px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <div class="legend" id="legend"></div>
+  <p class="n">Edit the list below (name, value, optional change) and press Render.</p>
+  <textarea id="json" spellcheck="false"></textarea><br />
+  <button id="go">Render</button>
+  <div id="tip"></div>
+  <script>
+    let data = [
+      { name: "MSFT", value: 3200, change: 16.46 },
+      { name: "AAPL", value: 3400, change: 5.69 },
+      { name: "NVDA", value: 3000, change: 59.36 },
+      { name: "GOOG", value: 2100, change: 12.72 },
+      { name: "AMZN", value: 1900, change: 23.35 },
+      { name: "META", value: 1300, change: 47.78 },
+      { name: "AVGO", value: 900, change: 42.67 },
+      { name: "TSLA", value: 800, change: -17.14 },
+      { name: "BRK-B", value: 900, change: 11.96 },
+      { name: "LLY", value: 750, change: 21.7 },
+      { name: "JPM", value: 620, change: 23.39 },
+      { name: "V", value: 560, change: 13.29 },
+      { name: "XOM", value: 500, change: -6.93 },
+      { name: "UNH", value: 480, change: -6.19 },
+      { name: "JNJ", value: 420, change: 3.7 },
+      { name: "WMT", value: 430, change: 1.9 },
+      { name: "MA", value: 420, change: 19.36 },
+      { name: "PG", value: 380, change: 4.47 },
+      { name: "HD", value: 370, change: 20.58 },
+      { name: "ORCL", value: 360, change: 8.91 },
+      { name: "COST", value: 380, change: 30.82 },
+      { name: "ABBV", value: 330, change: 19.55 },
+      { name: "BAC", value: 320, change: 19.44 },
+      { name: "KO", value: 300, change: 5.17 },
+      { name: "NFLX", value: 290, change: 32.34 },
+      { name: "CVX", value: 280, change: 2.4 },
+      { name: "CRM", value: 250, change: 38.44 },
+      { name: "AMD", value: 240, change: 61.58 },
+      { name: "PFE", value: 160, change: -12.88 },
+      { name: "NKE", value: 130, change: -5.14 },
+      { name: "SLB", value: 70, change: -15.36 },
+      { name: "COP", value: 120, change: -9.88 },
+      { name: "MCD", value: 210, change: 7.17 },
+      { name: "DIS", value: 190, change: 16.04 },
+    ];
+
+    setInterval(() => {
+      data.forEach(tkr => {
+        tkr.change += (Math.random() * 10 - 5) / 10;
+      });
+      render();
+    }, 2000)
+
+    const stops = [
+      [-18, [246, 53, 56]],
+      [-6, [191, 64, 69]],
+      [0, [65, 69, 84]],
+      [6, [47, 158, 79]],
+      [18, [48, 204, 90]],
+    ];
+    function color(c) {
+      if (c == null || isNaN(c)) return "#414554";
+      if (c <= stops[0][0]) return rgb(stops[0][1]);
+      for (let i = 1; i < stops.length; i++) {
+        if (c <= stops[i][0]) {
+          const [a, ca] = stops[i - 1],
+            [b, cb] = stops[i],
+            t = (c - a) / (b - a);
+          return rgb(ca.map((v, k) => v + (cb[k] - v) * t));
+        }
+      }
+      return rgb(stops[stops.length - 1][1]);
+    }
+    function rgb(a) {
+      return `rgb(${a.map(Math.round).join(",")})`;
+    }
+
+    // Squarified treemap
+    function squarify(items, x, y, w, h) {
+      const out = [],
+        total = items.reduce((s, d) => s + d.value, 0);
+      if (!total) return out;
+      const k = (w * h) / total;
+      const list = [...items].sort((a, b) => b.value - a.value).map((d) => ({ d, a: d.value * k }));
+      let r = { x, y, w, h },
+        row = [],
+        i = 0;
+      const sum = (a) => a.reduce((s, n) => s + n.a, 0);
+      const worst = (row, side) => {
+        const s = sum(row),
+          mx = Math.max(...row.map((n) => n.a)),
+          mn = Math.min(...row.map((n) => n.a));
+        return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+      };
+      const flush = () => {
+        const s = sum(row);
+        if (r.w >= r.h) {
+          // column on the left
+          const cw = s / r.h;
+          let cy = r.y;
+          row.forEach((n) => {
+            const nh = n.a / cw;
+            out.push({ d: n.d, x: r.x, y: cy, w: cw, h: nh });
+            cy += nh;
+          });
+          r = { x: r.x + cw, y: r.y, w: r.w - cw, h: r.h };
+        } else {
+          // row on top
+          const rh = s / r.w;
+          let cx = r.x;
+          row.forEach((n) => {
+            const nw = n.a / rh;
+            out.push({ d: n.d, x: cx, y: r.y, w: nw, h: rh });
+            cx += nw;
+          });
+          r = { x: r.x, y: r.y + rh, w: r.w, h: r.h - rh };
+        }
+        row = [];
+      };
+      while (i < list.length) {
+        const side = Math.min(r.w, r.h),
+          n = list[i];
+        if (!row.length || worst([...row, n], side) <= worst(row, side)) {
+          row.push(n);
+          i++;
+        } else flush();
+      }
+      if (row.length) flush();
+      return out;
+    }
+
+    const map = document.getElementById("map"),
+      tip = document.getElementById("tip");
+    function render() {
+      map.innerHTML = "";
+      const W = map.clientWidth,
+        H = map.clientHeight;
+      squarify(data, 0, 0, W, H).forEach(({ d, x, y, w, h }) => {
+        const el = document.createElement("div");
+        el.className = "b";
+        Object.assign(el.style, {
+          left: x + "px",
+          top: y + "px",
+          width: w + "px",
+          height: h + "px",
+          background: color(d.change),
+        });
+        const fs = Math.max(8, Math.min((w / Math.max(d.name.length, 3)) * 1.5, h / 3, 34));
+        if (w > 26 && h > 18) {
+          el.innerHTML =
+            `<b style="font-size:${fs}px">${d.name}</b>` +
+            (d.change != null && h > fs * 2.2 && w > fs * 3
+              ? `<span style="font-size:${Math.max(8, fs * 0.55)}px">${d.change > 0 ? "+" : ""}${d.change.toFixed(2)}%</span>`
+              : "");
+        }
+        el.onmousemove = (e) => {
+          tip.style.display = "block";
+          tip.style.left = e.clientX + 12 + "px";
+          tip.style.top = e.clientY + 12 + "px";
+          tip.innerHTML =
+            `<b>${d.name}</b><br>Value: ${d.value.toLocaleString()}` +
+            (d.change != null ? `<br>Change: ${d.change.toFixed(2)}%` : "");
+        };
+        el.onmouseleave = () => (tip.style.display = "none");
+        map.appendChild(el);
+      });
+    }
+    document.getElementById("legend").innerHTML = [-18, -12, -6, 0, 6, 12, 18]
+      .map((v) => `<span style="background:${color(v)}">${v > 0 ? "+" : ""}${v}%</span>`)
+      .join("");
+    const ta = document.getElementById("json");
+    ta.value = JSON.stringify(data);
+    document.getElementById("go").onclick = () => {
+      try {
+        const p = JSON.parse(ta.value);
+        if (!Array.isArray(p)) throw 0;
+        data = p.filter((d) => d && d.name && d.value > 0);
+        render();
+      } catch (e) {
+        alert('Invalid JSON. Use: [{"name":"AAA","value":100,"change":2.5}]');
+      }
+    };
+    addEventListener("resize", render);
+    render();
+  </script>
+</body>
+
+</html>
